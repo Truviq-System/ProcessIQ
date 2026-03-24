@@ -374,8 +374,14 @@ tr:hover td { background: var(--surface-raised); }
   padding: 10px 16px; border-bottom: 1px solid var(--border);
   background: var(--surface-raised);
 }
+.bpmn-viewer-preview-wrap {
+  position: relative; cursor: zoom-in;
+}
+.bpmn-viewer-preview-wrap:hover .bpmn-expand-hint {
+  opacity: 1;
+}
 .bpmn-viewer-container {
-  height: 400px; background: #fafafa;
+  height: 400px; background: #fafafa; pointer-events: none;
 }
 .bpmn-viewer-overlay {
   position: absolute; inset: 0;
@@ -383,12 +389,63 @@ tr:hover td { background: var(--surface-raised); }
   align-items: center; justify-content: center;
   background: rgba(255,255,255,0.85);
 }
+.bpmn-expand-hint {
+  position: absolute; bottom: 12px; right: 14px;
+  background: rgba(0,0,0,0.55); color: #fff;
+  font-size: 12px; font-weight: 500;
+  padding: 5px 10px; border-radius: 6px;
+  opacity: 0; transition: opacity 0.2s;
+  pointer-events: none;
+}
 .bpmn-empty {
   display: flex; flex-direction: column;
   align-items: center; justify-content: center;
   padding: 48px 24px; text-align: center;
 }
 .bpmn-empty-icon { font-size: 32px; color: var(--text-light); margin-bottom: 10px; }
+
+/* ── BPMN Lightbox ─────────────────────────────────────────────── */
+.bpmn-lightbox-overlay {
+  position: fixed; inset: 0; z-index: 1100;
+  background: rgba(0,0,0,0.75);
+  display: flex; align-items: center; justify-content: center;
+  padding: 20px;
+  animation: fadeIn 0.15s ease;
+}
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+.bpmn-lightbox-modal {
+  background: var(--surface); border-radius: var(--radius-lg);
+  width: 100%; max-width: 1300px; height: 90vh;
+  display: flex; flex-direction: column;
+  box-shadow: 0 24px 64px rgba(0,0,0,0.4);
+  overflow: hidden;
+  animation: scaleIn 0.15s ease;
+}
+@keyframes scaleIn { from { transform: scale(0.97); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+.bpmn-lightbox-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 16px; border-bottom: 1px solid var(--border);
+  background: var(--surface-raised); flex-shrink: 0; gap: 12px;
+}
+.bpmn-lightbox-title {
+  font-size: 13.5px; font-weight: 600; color: var(--text-h);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.bpmn-lightbox-close {
+  background: none; border: none; cursor: pointer;
+  font-size: 16px; color: var(--text-muted);
+  padding: 4px 8px; border-radius: 4px;
+  transition: background 0.15s, color 0.15s;
+}
+.bpmn-lightbox-close:hover { background: var(--danger-light); color: var(--danger); }
+.bpmn-lightbox-canvas {
+  width: 100%; height: 100%; background: #fafafa;
+}
+.bpmn-lightbox-footer {
+  padding: 8px 16px; font-size: 11.5px; color: var(--text-light);
+  border-top: 1px solid var(--border); background: var(--surface-raised);
+  text-align: center; flex-shrink: 0;
+}
 
 /* ── BPMN Editor ───────────────────────────────────────────────── */
 .bpmn-editor-overlay {
