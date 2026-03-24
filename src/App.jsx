@@ -6,17 +6,23 @@ import ProcessList from './components/ProcessList'
 import ProcessDetail from './components/ProcessDetail'
 import ProcessForm from './components/ProcessForm'
 import OrgManager from './components/OrgManager'
+import LoginScreen from './components/LoginScreen'
+import UserManager from './components/UserManager'
+import PendingApprovals from './components/PendingApprovals'
+import { useAuth } from './contexts/AuthContext'
 import { getProcesses } from './utils/api'
 import './App.css'
 
 function App() {
+  const { user, permissions, loading: authLoading } = useAuth()
   const [currentView, setCurrentView] = useState('dashboard')
   const [selectedProcess, setSelectedProcess] = useState(null)
   const [prevView, setPrevView] = useState('dashboard')
   const [filterOrg, setFilterOrg] = useState('')
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [processes, setProcesses] = useState([])
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(false)
+  const [pendingCount, setPendingCount] = useState(0)
 
   const loadProcesses = useCallback(async () => {
     setLoading(true)
@@ -30,7 +36,12 @@ function App() {
     }
   }, [])
 
-  useEffect(() => { loadProcesses() }, [loadProcesses])
+  // Only fetch processes once the user is authenticated.
+  // Without this, the query fires before the Supabase session is set,
+  // RLS blocks it, and the list stays empty even after login.
+  useEffect(() => {
+    if (user) loadProcesses()
+  }, [user, loadProcesses])
 
   const handleNavigate = (view, process = null, options = {}) => {
     setPrevView(currentView)
@@ -82,6 +93,7 @@ function App() {
             onDelete={handleDelete}
             onRefresh={loadProcesses}
             initialFilterOrg={filterOrg}
+            permissions={permissions}
           />
         )
       case 'detail':
@@ -91,6 +103,7 @@ function App() {
             onNavigate={handleNavigate}
             onDelete={handleDelete}
             onSave={handleSave}
+            permissions={permissions}
           />
         )
       case 'add':
@@ -99,6 +112,7 @@ function App() {
             processes={processes}
             onSave={(saved) => { handleSave(saved); loadProcesses() }}
             onCancel={handleCancel}
+            permissions={permissions}
           />
         )
       case 'edit':
@@ -108,24 +122,39 @@ function App() {
             processes={processes}
             onSave={(saved) => { handleSave(saved); loadProcesses() }}
             onCancel={handleCancel}
+            permissions={permissions}
           />
         )
       case 'orgs':
         return <OrgManager onNavigate={handleNavigate} />
+      case 'approvals':
+        return <PendingApprovals onNavigate={handleNavigate} onCountChange={setPendingCount} />
+      case 'users':
+        return <UserManager onNavigate={handleNavigate} />
       default:
         return <Dashboard processes={processes} onNavigate={handleNavigate} />
     }
   }
 
+  if (authLoading) {
+    return <div className="loading-screen" style={{ height: '100vh' }}>Loading...</div>
+  }
+
+  if (!user) {
+    return <LoginScreen />
+  }
+
   return (
     <div className="app-shell">
-      <Navbar onToggleSidebar={() => setSidebarCollapsed(c => !c)} />
+      <Navbar onToggleSidebar={() => setSidebarCollapsed(c => !c)} pendingCount={pendingCount} />
       <div className="app-body">
         <Sidebar
           collapsed={sidebarCollapsed}
           currentView={currentView}
           onNavigate={handleNavigate}
           processes={processes}
+          permissions={permissions}
+          pendingCount={pendingCount}
         />
         <main className="main-content">
           {renderView()}

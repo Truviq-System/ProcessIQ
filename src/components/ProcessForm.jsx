@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
-import { createProcess, updateProcess, generateId, getOrgs, getOrgData } from '../utils/api';
+import { createProcess, updateProcess, generateId, getOrgs, getOrgData, createChangeRequest } from '../utils/api';
+import { useAuth } from '../contexts/AuthContext';
 
 const LEVELS = ['Support', 'Core', 'Strategic'];
 
@@ -101,8 +102,10 @@ function TagInput({ tags, onAdd, onRemove, inputRef, placeholder, suggestions = 
   );
 }
 
-function ProcessForm({ process, processes = [], onSave, onCancel }) {
+function ProcessForm({ process, processes = [], onSave, onCancel, permissions = {} }) {
+  const { user } = useAuth()
   const isEdit = !!process;
+  const needsApproval = !!permissions.editsRequireApproval;
 
   const [form, setForm] = useState(
     isEdit
@@ -118,6 +121,8 @@ function ProcessForm({ process, processes = [], onSave, onCancel }) {
   );
   const [errors, setErrors] = useState({});
   const [saving, setSaving] = useState(false);
+  const [changeNotes, setChangeNotes] = useState('');
+  const [submitted, setSubmitted] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const [allOrgs, setAllOrgs] = useState([]);
   const [orgTableData, setOrgTableData] = useState(null);
@@ -166,10 +171,22 @@ function ProcessForm({ process, processes = [], onSave, onCancel }) {
     setSaving(true);
     setErrors({});
     try {
-      const saved = isEdit
-        ? await updateProcess(form.id, form)
-        : await createProcess(form);
-      onSave(saved);
+      if (needsApproval) {
+        await createChangeRequest({
+          processId:     isEdit ? form.id : null,
+          requestedBy:   user.id,
+          requesterEmail: user.email,
+          changeType:    isEdit ? 'update' : 'create',
+          changeData:    { form },
+          changeNotes:   changeNotes.trim() || null,
+        });
+        setSubmitted(true);
+      } else {
+        const saved = isEdit
+          ? await updateProcess(form.id, form)
+          : await createProcess(form);
+        onSave(saved);
+      }
     } catch (err) {
       setErrors({ submit: err.message });
     } finally {
@@ -233,6 +250,20 @@ function ProcessForm({ process, processes = [], onSave, onCancel }) {
     setForm(f => ({ ...f, processNames: f.processNames.filter((_, i) => i !== idx) }));
   };
 
+  if (submitted) {
+    return (
+      <div className="empty-state" style={{ paddingTop: '80px' }}>
+        <div style={{ fontSize: '40px', marginBottom: '12px', color: 'var(--success)' }}>✓</div>
+        <h3>Change Submitted for Approval</h3>
+        <p style={{ maxWidth: '380px', textAlign: 'center', marginBottom: '24px' }}>
+          Your {isEdit ? 'changes to' : 'new'} process have been submitted.
+          A Process Owner will review and approve your request.
+        </p>
+        <button className="btn btn-primary" onClick={onCancel}>Back to Processes</button>
+      </div>
+    )
+  }
+
   return (
     <div>
       <div className="breadcrumb">
@@ -246,7 +277,12 @@ function ProcessForm({ process, processes = [], onSave, onCancel }) {
       <div className="page-header">
         <div className="page-header-left">
           <h1>{isEdit ? 'Edit Process' : 'Add Process'}</h1>
-          <p>{isEdit ? `Editing: ${process.processName}` : 'Fill in the details then attach your BPMN diagram'}</p>
+          <p>
+            {isEdit ? `Editing: ${process.processName}` : 'Fill in the details then attach your BPMN diagram'}
+            {needsApproval && (
+              <span className="badge badge-yellow" style={{ marginLeft: '10px' }}>Requires Approval</span>
+            )}
+          </p>
         </div>
       </div>
 
@@ -388,6 +424,27 @@ function ProcessForm({ process, processes = [], onSave, onCancel }) {
           </div>
         </div>
 
+        {needsApproval && (
+          <div className="card" style={{ marginBottom: '20px' }}>
+            <div className="card-header">
+              <h3>Approval Request Notes</h3>
+              <span className="badge badge-yellow">Requires Process Owner Approval</span>
+            </div>
+            <div className="card-body">
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label>Notes for reviewer <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>(optional)</span></label>
+                <textarea
+                  value={changeNotes}
+                  onChange={e => setChangeNotes(e.target.value)}
+                  rows={3}
+                  placeholder="Describe what changed and why…"
+                  style={{ resize: 'vertical' }}
+                />
+              </div>
+            </div>
+          </div>
+        )}
+
         {errors.submit && (
           <div style={{ background: 'var(--danger-light)', color: 'var(--danger)', padding: '10px 14px', borderRadius: 'var(--radius)', marginBottom: '16px', fontSize: '13.5px' }}>
             {errors.submit}
@@ -396,7 +453,11 @@ function ProcessForm({ process, processes = [], onSave, onCancel }) {
 
         <div className="form-actions">
           <button type="submit" className="btn btn-primary btn-lg" disabled={saving}>
-            {saving ? 'Saving...' : isEdit ? '✓ Save Changes' : '+ Add Process'}
+            {saving
+              ? (needsApproval ? 'Submitting…' : 'Saving…')
+              : needsApproval
+                ? (isEdit ? '↑ Submit Changes for Approval' : '↑ Submit for Approval')
+                : (isEdit ? '✓ Save Changes' : '+ Add Process')}
           </button>
           <button type="button" className="btn btn-secondary" onClick={onCancel} disabled={saving}>
             Cancel

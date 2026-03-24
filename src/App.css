@@ -493,6 +493,90 @@ tr:hover td { background: var(--surface-raised); }
   display: flex; gap: 10px; justify-content: center;
 }
 
+/* ── Login Screen ──────────────────────────────────────────────── */
+.login-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg);
+  padding: 24px;
+}
+.login-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 36px 40px;
+  width: 100%;
+  max-width: 400px;
+  box-shadow: var(--shadow-lg);
+}
+.login-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 28px;
+  gap: 8px;
+}
+.login-logo { margin-bottom: 4px; }
+.login-title { font-size: 22px; font-weight: 700; margin: 0; }
+.login-subtitle { font-size: 13px; color: var(--text-muted); margin: 0; }
+.login-form { display: flex; flex-direction: column; gap: 4px; }
+.login-submit { width: 100%; justify-content: center; margin-top: 8px; }
+.login-error {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  background: var(--danger-light);
+  color: var(--danger);
+  border: 1px solid #fecaca;
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  font-size: 13px;
+  line-height: 1.4;
+}
+.login-error-icon { flex-shrink: 0; margin-top: 1px; }
+
+/* ── Navbar user info ──────────────────────────────────────────── */
+.navbar-right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.navbar-user {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text);
+}
+.navbar-user-name { font-weight: 500; color: var(--text-h); }
+.navbar-role-badge {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  padding: 2px 7px;
+  border-radius: 999px;
+}
+.role-admin   { background: #fef3c7; color: #92400e; }
+.role-editor  { background: var(--primary-light); color: var(--primary-dark); }
+.role-viewer  { background: var(--surface-raised); color: var(--text-muted); }
+.navbar-pending-badge {
+  background: var(--danger);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  min-width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 5px;
+}
+
 /* ── Empty state ───────────────────────────────────────────────── */
 .empty-state {
   display: flex; flex-direction: column;

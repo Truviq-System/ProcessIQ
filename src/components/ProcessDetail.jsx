@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
-import { deleteProcess, updateProcess, updateBpmn, getProcess, getProcessVersions, createProcess, getProcesses, generateId } from '../utils/api';
+import { deleteProcess, updateProcess, updateBpmn, getProcess, getProcessVersions, createProcess, getProcesses, generateId, createChangeRequest } from '../utils/api';
+import { useAuth } from '../contexts/AuthContext';
 import BpmnViewer from './BpmnViewer';
 import BpmnEditor from './BpmnEditor';
 
@@ -11,7 +12,7 @@ const LEVEL_BADGE = {
 };
 
 // Inline editable field
-function EditableField({ label, value, type = 'text', onSave }) {
+function EditableField({ label, value, type = 'text', onSave, canEdit = true }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value || '');
   const [saving, setSaving] = useState(false);
@@ -70,12 +71,17 @@ function EditableField({ label, value, type = 'text', onSave }) {
           <button className="btn btn-ghost btn-sm" onClick={cancel} disabled={saving}>✕</button>
         </div>
       ) : (
-        <div className="inline-edit-display" onClick={start} title="Click to edit">
+        <div
+          className="inline-edit-display"
+          onClick={canEdit ? start : undefined}
+          title={canEdit ? 'Click to edit' : undefined}
+          style={canEdit ? undefined : { cursor: 'default' }}
+        >
           {type === 'select' && value
             ? <span className={`badge ${LEVEL_BADGE[value] || 'badge-gray'}`}>{value}</span>
             : <span className="detail-meta-value">{value || <span style={{ color: 'var(--text-light)', fontWeight: 400 }}>—</span>}</span>
           }
-          <span className="inline-edit-pencil">✎</span>
+          {canEdit && <span className="inline-edit-pencil">✎</span>}
         </div>
       )}
     </div>
@@ -88,7 +94,8 @@ function normalizeSubProcessTags(sps) {
   return sps.map(sp => (typeof sp === 'string' ? sp : sp.name)).filter(Boolean);
 }
 
-function ProcessDetail({ process, onNavigate, onDelete, onSave }) {
+function ProcessDetail({ process, onNavigate, onDelete, onSave, permissions = {} }) {
+  const { user } = useAuth()
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [editingBpmn, setEditingBpmn] = useState(false);
@@ -97,6 +104,7 @@ function ProcessDetail({ process, onNavigate, onDelete, onSave }) {
   const [fetchError, setFetchError] = useState(null);
   const [versions, setVersions] = useState([]);
   const [selectedVersion, setSelectedVersion] = useState(null);
+  const [bpmnSubmitted, setBpmnSubmitted] = useState(false);
   const [namesDraft, setNamesDraft] = useState(null);
   const [nameInput, setNameInput] = useState('');
   const [nameSaveModal, setNameSaveModal] = useState(false);
@@ -167,6 +175,19 @@ function ProcessDetail({ process, onNavigate, onDelete, onSave }) {
   };
 
   const handleBpmnSave = async (newXml, changeNotes) => {
+    if (permissions.editsRequireApproval) {
+      await createChangeRequest({
+        processId:      currentProcess.id,
+        requestedBy:    user.id,
+        requesterEmail: user.email,
+        changeType:     'bpmn',
+        changeData:     { bpmnXml: newXml, fileName: currentProcess.fileName, changeNotes },
+        changeNotes,
+      });
+      setEditingBpmn(false);
+      setBpmnSubmitted(true);
+      return;
+    }
     const saved = await updateBpmn(currentProcess.id, {
       bpmnXml: newXml,
       fileName: currentProcess.fileName,
@@ -246,6 +267,13 @@ function ProcessDetail({ process, onNavigate, onDelete, onSave }) {
         />
       )}
 
+      {bpmnSubmitted && (
+        <div style={{ background: 'var(--success-light)', color: 'var(--success)', border: '1px solid #bbf7d0', borderRadius: 'var(--radius)', padding: '10px 14px', marginBottom: '16px', fontSize: '13.5px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span>✓ BPMN change submitted for approval. A Process Owner will review it.</span>
+          <button className="btn btn-ghost btn-sm" onClick={() => setBpmnSubmitted(false)}>✕</button>
+        </div>
+      )}
+
       <div className="breadcrumb">
         <span className="breadcrumb-item" onClick={() => onNavigate('dashboard')}>Dashboard</span>
         <span className="breadcrumb-sep">/</span>
@@ -286,12 +314,16 @@ function ProcessDetail({ process, onNavigate, onDelete, onSave }) {
           {currentProcess.bpmnXml && (
             <button className="btn btn-secondary" onClick={handleDownload}>↓ Download</button>
           )}
-          <button className="btn btn-secondary" onClick={() => setEditingBpmn(true)}>
-            Edit BPMN
-          </button>
-          <button className="btn btn-ghost" style={{ color: 'var(--danger)' }} onClick={() => setConfirmDelete(true)}>
-            Delete
-          </button>
+          {permissions.edit && (
+            <button className="btn btn-secondary" onClick={() => setEditingBpmn(true)}>
+              Edit BPMN
+            </button>
+          )}
+          {permissions.delete && (
+            <button className="btn btn-ghost" style={{ color: 'var(--danger)' }} onClick={() => setConfirmDelete(true)}>
+              Delete
+            </button>
+          )}
         </div>
       </div>
 
@@ -376,27 +408,31 @@ function ProcessDetail({ process, onNavigate, onDelete, onSave }) {
                     {allNames.map((n, i) => (
                       <span key={i} className="tag-chip" style={{ opacity: i === 0 ? 1 : 0.85 }}>
                         {n}
-                        <button
-                          type="button"
-                          className="tag-chip-remove"
-                          onClick={() => handleRemoveName(i)}
-                          disabled={allNames.length === 1}
-                          title={allNames.length === 1 ? 'Must have at least one name' : 'Remove'}
-                        >✕</button>
+                        {permissions.edit && !permissions.editsRequireApproval && (
+                          <button
+                            type="button"
+                            className="tag-chip-remove"
+                            onClick={() => handleRemoveName(i)}
+                            disabled={allNames.length === 1}
+                            title={allNames.length === 1 ? 'Must have at least one name' : 'Remove'}
+                          >✕</button>
+                        )}
                       </span>
                     ))}
-                    <input
-                      type="text"
-                      className="tag-input"
-                      value={nameInput}
-                      onChange={e => setNameInput(e.target.value)}
-                      onKeyDown={e => {
-                        if (e.key === 'Enter' || e.key === ',') { e.preventDefault(); handleAddName(); }
-                      }}
-                      placeholder="Add name..."
-                    />
+                    {permissions.edit && !permissions.editsRequireApproval && (
+                      <input
+                        type="text"
+                        className="tag-input"
+                        value={nameInput}
+                        onChange={e => setNameInput(e.target.value)}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter' || e.key === ',') { e.preventDefault(); handleAddName(); }
+                        }}
+                        placeholder="Add name..."
+                      />
+                    )}
                   </div>
-                  {namesDraft !== null && (
+                  {namesDraft !== null && permissions.edit && !permissions.editsRequireApproval && (
                     <div style={{ marginTop: '8px', display: 'flex', gap: '8px' }}>
                       <button className="btn btn-primary btn-sm" onClick={() => setNameSaveModal(true)}>
                         Save Names
@@ -413,6 +449,7 @@ function ProcessDetail({ process, onNavigate, onDelete, onSave }) {
                 value={currentProcess.level}
                 type="select"
                 onSave={v => persist({ level: v })}
+                canEdit={!!permissions.edit && !permissions.editsRequireApproval}
               />
               <div className="detail-meta-item">
                 <div className="detail-meta-label">Version</div>

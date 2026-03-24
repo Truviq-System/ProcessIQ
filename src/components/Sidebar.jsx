@@ -2,7 +2,7 @@ import { useState } from 'react';
 
 const getFn = (p) => (Array.isArray(p.function) ? p.function[0] : p.function);
 
-export default function Sidebar({ collapsed, currentView, onNavigate, processes = [] }) {
+export default function Sidebar({ collapsed, currentView, onNavigate, processes = [], permissions = {}, pendingCount = 0 }) {
   const [openOrgs, setOpenOrgs] = useState({});
   const [openFns, setOpenFns] = useState({});
   const [openLevels, setOpenLevels] = useState({});
@@ -35,13 +35,40 @@ export default function Sidebar({ collapsed, currentView, onNavigate, processes 
           )}
         </button>
 
-        <button
-          className={`sidebar-nav-item${currentView === 'orgs' ? ' active' : ''}`}
-          onClick={() => onNavigate('orgs')}
-        >
-          <span className="sidebar-nav-icon">⊞</span>
-          <span className="sidebar-nav-text">Organizations</span>
-        </button>
+        {permissions.approveChanges && (
+          <button
+            className={`sidebar-nav-item${currentView === 'approvals' ? ' active' : ''}`}
+            onClick={() => onNavigate('approvals')}
+          >
+            <span className="sidebar-nav-icon">✓</span>
+            <span className="sidebar-nav-text">Approvals</span>
+            {pendingCount > 0 && (
+              <span className="sidebar-nav-count" style={{ background: 'var(--danger)', color: '#fff' }}>
+                {pendingCount}
+              </span>
+            )}
+          </button>
+        )}
+
+        {permissions.manageOrgs && (
+          <button
+            className={`sidebar-nav-item${currentView === 'orgs' ? ' active' : ''}`}
+            onClick={() => onNavigate('orgs')}
+          >
+            <span className="sidebar-nav-icon">⊞</span>
+            <span className="sidebar-nav-text">Organizations</span>
+          </button>
+        )}
+
+        {permissions.manageUsers && (
+          <button
+            className={`sidebar-nav-item${currentView === 'users' ? ' active' : ''}`}
+            onClick={() => onNavigate('users')}
+          >
+            <span className="sidebar-nav-icon">👤</span>
+            <span className="sidebar-nav-text">User Management</span>
+          </button>
+        )}
       </div>
 
       <div className="sidebar-divider" />

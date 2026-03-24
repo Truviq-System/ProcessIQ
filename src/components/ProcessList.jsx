@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { deleteProcess } from '../utils/api';
 
-function ProcessList({ processes, onNavigate, onDelete, onRefresh, initialFilterOrg = '' }) {
+function ProcessList({ processes, onNavigate, onDelete, onRefresh, initialFilterOrg = '', permissions = {} }) {
   const [search, setSearch] = useState('');
   const [filterOrg, setFilterOrg] = useState(initialFilterOrg);
 
@@ -57,7 +57,9 @@ function ProcessList({ processes, onNavigate, onDelete, onRefresh, initialFilter
         </div>
         <div className="page-header-actions">
           <button className="btn btn-ghost btn-sm" onClick={onRefresh} title="Refresh">↺ Refresh</button>
-          <button className="btn btn-primary" onClick={() => onNavigate('add')}>+ Add Process</button>
+          {permissions.add && (
+            <button className="btn btn-primary" onClick={() => onNavigate('add')}>+ Add Process</button>
+          )}
         </div>
       </div>
 
@@ -102,7 +104,7 @@ function ProcessList({ processes, onNavigate, onDelete, onRefresh, initialFilter
                 ? 'Upload your first BPMN diagram to get started.'
                 : 'Try adjusting your search or filter criteria.'}
             </p>
-            {processes.length === 0 && (
+            {processes.length === 0 && permissions.add && (
               <button className="btn btn-primary" onClick={() => onNavigate('add')}>+ Add Process</button>
             )}
           </div>
@@ -169,14 +171,18 @@ function ProcessList({ processes, onNavigate, onDelete, onRefresh, initialFilter
                   <td>
                     <div style={{ display: 'flex', gap: '4px' }}>
                       <button className="btn btn-ghost btn-sm" onClick={() => onNavigate('detail', p)}>View</button>
-                      <button className="btn btn-ghost btn-sm" onClick={() => onNavigate('edit', p)}>Edit</button>
-                      <button
-                        className="btn btn-ghost btn-sm"
-                        style={{ color: 'var(--danger)' }}
-                        onClick={() => setConfirmDelete(p.id)}
-                      >
-                        Delete
-                      </button>
+                      {permissions.edit && (
+                        <button className="btn btn-ghost btn-sm" onClick={() => onNavigate('edit', p)}>Edit</button>
+                      )}
+                      {permissions.delete && (
+                        <button
+                          className="btn btn-ghost btn-sm"
+                          style={{ color: 'var(--danger)' }}
+                          onClick={() => setConfirmDelete(p.id)}
+                        >
+                          Delete
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>

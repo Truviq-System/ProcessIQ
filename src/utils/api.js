@@ -148,6 +148,128 @@ export function generateId(functionName, existingProcesses) {
   return `${prefix}-${String(next).padStart(3, '0')}`
 }
 
+// ─── App Users (System Administrator manages) ──────────────────────
+
+export async function signUpNewUser(email, password) {
+  const { data, error } = await supabase.auth.signUp({ email, password })
+  if (error) throw error
+  return data
+}
+
+export async function getAppUsers() {
+  const { data, error } = await supabase
+    .from('app_users')
+    .select('*')
+    .order('created_at', { ascending: true })
+  if (error) throw error
+  return data || []
+}
+
+export async function createAppUser({ email, name, roles }) {
+  const { data, error } = await supabase
+    .from('app_users')
+    .insert([{ email, name, roles }])
+    .select()
+    .single()
+  if (error) throw error
+  return data
+}
+
+export async function updateAppUser(id, { name, roles, is_active }) {
+  const { data, error } = await supabase
+    .from('app_users')
+    .update({ name, roles, is_active })
+    .eq('id', id)
+    .select()
+    .single()
+  if (error) throw error
+  return data
+}
+
+export async function deleteAppUser(id) {
+  const { error } = await supabase.from('app_users').delete().eq('id', id)
+  if (error) throw error
+}
+
+// ─── Change Requests (approval workflow) ───────────────────────────
+
+export async function createChangeRequest({ processId, requesterEmail, requestedBy, changeType, changeData, changeNotes }) {
+  const { data, error } = await supabase
+    .from('process_change_requests')
+    .insert([{
+      process_id:      processId || null,
+      requested_by:    requestedBy,
+      requester_email: requesterEmail,
+      change_type:     changeType,
+      change_data:     changeData,
+      change_notes:    changeNotes || null,
+      status:          'pending',
+    }])
+    .select()
+    .single()
+  if (error) throw error
+  return data
+}
+
+export async function getPendingChangeRequests() {
+  const { data, error } = await supabase
+    .from('process_change_requests')
+    .select('*')
+    .eq('status', 'pending')
+    .order('created_at', { ascending: true })
+  if (error) throw error
+  return data || []
+}
+
+export async function getAllChangeRequests() {
+  const { data, error } = await supabase
+    .from('process_change_requests')
+    .select('*')
+    .order('created_at', { ascending: false })
+  if (error) throw error
+  return data || []
+}
+
+export async function approveChangeRequest(id, { reviewerEmail, reviewedBy, reviewNotes, changeType, processId, changeData }) {
+  // Apply the change to the actual process table
+  let saved = null
+  if (changeType === 'create') {
+    saved = await createProcess(changeData.form)
+  } else if (changeType === 'update') {
+    saved = await updateProcess(processId, changeData.form)
+  } else if (changeType === 'bpmn') {
+    saved = await updateBpmn(processId, changeData)
+  }
+
+  // Mark request as approved
+  const { error } = await supabase
+    .from('process_change_requests')
+    .update({
+      status:         'approved',
+      reviewed_by:    reviewedBy,
+      reviewer_email: reviewerEmail,
+      review_notes:   reviewNotes || null,
+      reviewed_at:    new Date().toISOString(),
+    })
+    .eq('id', id)
+  if (error) throw error
+  return saved
+}
+
+export async function rejectChangeRequest(id, { reviewerEmail, reviewedBy, reviewNotes }) {
+  const { error } = await supabase
+    .from('process_change_requests')
+    .update({
+      status:         'rejected',
+      reviewed_by:    reviewedBy,
+      reviewer_email: reviewerEmail,
+      review_notes:   reviewNotes || null,
+      reviewed_at:    new Date().toISOString(),
+    })
+    .eq('id', id)
+  if (error) throw error
+}
+
 // ─── Organizations ─────────────────────────────────────────────────
 
 export async function getOrgs() {
