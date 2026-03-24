@@ -438,8 +438,12 @@ tr:hover td { background: var(--surface-raised); }
   transition: background 0.15s, color 0.15s;
 }
 .bpmn-lightbox-close:hover { background: var(--danger-light); color: var(--danger); }
-.bpmn-lightbox-canvas {
-  width: 100%; height: 100%; background: #fafafa;
+.bpmn-lightbox-body {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+  background: #fafafa;
+  min-height: 0;
 }
 .bpmn-lightbox-footer {
   padding: 8px 16px; font-size: 11.5px; color: var(--text-light);

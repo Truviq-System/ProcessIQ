@@ -1,6 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 
-function useBpmnViewer(xml, containerRef) {
+const CSS_IMPORTS = [
+  import('bpmn-js/dist/assets/diagram-js.css'),
+  import('bpmn-js/dist/assets/bpmn-font/css/bpmn-embedded.css'),
+];
+
+function useBpmnViewer(xml, containerRef, { navigated = false } = {}) {
   const viewerRef = useRef(null);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -13,11 +18,11 @@ function useBpmnViewer(xml, containerRef) {
     setError(null);
     setReady(false);
 
-    Promise.all([
-      import('bpmn-js/lib/Viewer'),
-      import('bpmn-js/dist/assets/diagram-js.css'),
-      import('bpmn-js/dist/assets/bpmn-font/css/bpmn-embedded.css'),
-    ])
+    const viewerImport = navigated
+      ? import('bpmn-js/lib/NavigatedViewer')
+      : import('bpmn-js/lib/Viewer');
+
+    Promise.all([viewerImport, ...CSS_IMPORTS])
       .then(([{ default: BpmnJsViewer }]) => {
         if (cancelled || !containerRef.current) return;
         if (viewerRef.current) { viewerRef.current.destroy(); viewerRef.current = null; }
@@ -41,7 +46,7 @@ function useBpmnViewer(xml, containerRef) {
       cancelled = true;
       if (viewerRef.current) { viewerRef.current.destroy(); viewerRef.current = null; }
     };
-  }, [xml]);
+  }, [xml, navigated]);
 
   useEffect(() => {
     if (!ready) return;
@@ -67,7 +72,7 @@ function useBpmnViewer(xml, containerRef) {
 
 function BpmnLightbox({ xml, fileName, onClose }) {
   const containerRef = useRef(null);
-  const { error, loading, zoomIn, zoomOut, fitView } = useBpmnViewer(xml, containerRef);
+  const { error, loading, zoomIn, zoomOut, fitView } = useBpmnViewer(xml, containerRef, { navigated: true });
 
   useEffect(() => {
     const onKey = (e) => { if (e.key === 'Escape') onClose(); };
@@ -78,9 +83,10 @@ function BpmnLightbox({ xml, fileName, onClose }) {
   return (
     <div className="bpmn-lightbox-overlay" onClick={onClose}>
       <div className="bpmn-lightbox-modal" onClick={e => e.stopPropagation()}>
+
         <div className="bpmn-lightbox-header">
           <span className="bpmn-lightbox-title">
-            {fileName ? fileName : 'BPMN Diagram'}
+            {fileName || 'BPMN Diagram'}
           </span>
           <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
             <button className="btn btn-secondary btn-sm" onClick={fitView}>Fit View</button>
@@ -90,8 +96,11 @@ function BpmnLightbox({ xml, fileName, onClose }) {
           </div>
         </div>
 
-        <div style={{ position: 'relative', flex: 1, overflow: 'hidden' }}>
-          <div ref={containerRef} className="bpmn-lightbox-canvas" />
+        <div className="bpmn-lightbox-body">
+          <div
+            ref={containerRef}
+            style={{ width: '100%', height: '100%' }}
+          />
           {(loading || error) && (
             <div className="bpmn-viewer-overlay">
               {loading && <p style={{ color: 'var(--text-muted)' }}>Rendering diagram...</p>}
@@ -106,8 +115,9 @@ function BpmnLightbox({ xml, fileName, onClose }) {
         </div>
 
         <div className="bpmn-lightbox-footer">
-          Scroll to zoom · Drag to pan · Press Esc to close
+          Scroll to zoom · Click &amp; drag to pan · Press Esc to close
         </div>
+
       </div>
     </div>
   );
@@ -116,7 +126,7 @@ function BpmnLightbox({ xml, fileName, onClose }) {
 function BpmnViewer({ xml, fileName }) {
   const containerRef = useRef(null);
   const [expanded, setExpanded] = useState(false);
-  const { error, loading, zoomIn, zoomOut, fitView } = useBpmnViewer(xml, containerRef);
+  const { error, loading, fitView } = useBpmnViewer(xml, containerRef, { navigated: false });
 
   if (!xml) {
     return (
@@ -136,9 +146,7 @@ function BpmnViewer({ xml, fileName }) {
           <h4>BPMN Diagram{fileName ? ` — ${fileName}` : ''}</h4>
           <div style={{ display: 'flex', gap: '8px' }}>
             <button className="btn btn-secondary btn-sm" onClick={fitView}>Fit View</button>
-            <button className="btn btn-secondary btn-sm" onClick={zoomOut}>− Zoom</button>
-            <button className="btn btn-secondary btn-sm" onClick={zoomIn}>+ Zoom</button>
-            <button className="btn btn-primary btn-sm" onClick={() => setExpanded(true)} title="Open fullscreen">⛶ Expand</button>
+            <button className="btn btn-primary btn-sm" onClick={() => setExpanded(true)}>⛶ Expand</button>
           </div>
         </div>
 
