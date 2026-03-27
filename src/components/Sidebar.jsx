@@ -35,6 +35,14 @@ export default function Sidebar({ collapsed, currentView, onNavigate, processes 
           )}
         </button>
 
+        <button
+          className={`sidebar-nav-item${currentView === 'ai-generator' ? ' active' : ''}`}
+          onClick={() => onNavigate('ai-generator')}
+        >
+          <span className="sidebar-nav-icon">✦</span>
+          <span className="sidebar-nav-text">AI Generator</span>
+        </button>
+
         {permissions.approveChanges && (
           <button
             className={`sidebar-nav-item${currentView === 'approvals' ? ' active' : ''}`}

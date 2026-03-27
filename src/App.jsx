@@ -9,6 +9,7 @@ import OrgManager from './components/OrgManager'
 import LoginScreen from './components/LoginScreen'
 import UserManager from './components/UserManager'
 import PendingApprovals from './components/PendingApprovals'
+import AIGenerator from './components/AIGenerator'
 import { useAuth } from './contexts/AuthContext'
 import { getProcesses } from './utils/api'
 import './App.css'
@@ -19,6 +20,7 @@ function App() {
   const [selectedProcess, setSelectedProcess] = useState(null)
   const [prevView, setPrevView] = useState('dashboard')
   const [filterOrg, setFilterOrg] = useState('')
+  const [initialBpmn, setInitialBpmn] = useState(null)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [processes, setProcesses] = useState([])
   const [loading, setLoading] = useState(false)
@@ -48,6 +50,7 @@ function App() {
     setCurrentView(view)
     setSelectedProcess(process || null)
     setFilterOrg(options.filterOrg || '')
+    setInitialBpmn(options.initialBpmn || null)
   }
 
   const handleDelete = (id) => {
@@ -113,6 +116,7 @@ function App() {
             onSave={(saved) => { handleSave(saved); loadProcesses() }}
             onCancel={handleCancel}
             permissions={permissions}
+            initialBpmn={initialBpmn}
           />
         )
       case 'edit':
@@ -131,6 +135,8 @@ function App() {
         return <PendingApprovals onNavigate={handleNavigate} onCountChange={setPendingCount} />
       case 'users':
         return <UserManager onNavigate={handleNavigate} />
+      case 'ai-generator':
+        return <AIGenerator onNavigate={handleNavigate} permissions={permissions} />
       default:
         return <Dashboard processes={processes} onNavigate={handleNavigate} />
     }

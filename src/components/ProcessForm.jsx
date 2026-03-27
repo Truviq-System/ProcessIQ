@@ -102,7 +102,7 @@ function TagInput({ tags, onAdd, onRemove, inputRef, placeholder, suggestions = 
   );
 }
 
-function ProcessForm({ process, processes = [], onSave, onCancel, permissions = {} }) {
+function ProcessForm({ process, processes = [], onSave, onCancel, permissions = {}, initialBpmn = null }) {
   const { user } = useAuth()
   const isEdit = !!process;
   const needsApproval = !!permissions.editsRequireApproval;
@@ -117,7 +117,7 @@ function ProcessForm({ process, processes = [], onSave, onCancel, permissions = 
             typeof sp === 'string' ? sp : sp.name
           ),
         }
-      : { ...defaultForm }
+      : { ...defaultForm, ...(initialBpmn ? { bpmnXml: initialBpmn, fileName: 'ai-generated.bpmn' } : {}) }
   );
   const [errors, setErrors] = useState({});
   const [saving, setSaving] = useState(false);

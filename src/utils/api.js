@@ -324,3 +324,41 @@ export async function deleteOrg(org) {
     .eq('org', org)
   if (error) throw error
 }
+
+// ─── Flask AI API ───────────────────────────────────────────────────
+
+const FLASK_BASE = import.meta.env.VITE_FLASK_API_URL || 'http://localhost:5000'
+
+async function flaskPost(path, body) {
+  const res = await fetch(`${FLASK_BASE}${path}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  if (!res.ok) {
+    const text = await res.text()
+    throw new Error(text || `Flask API error ${res.status}`)
+  }
+  return res.json()
+}
+
+export async function aiGenerateBpmn({ description, appName, appIndustry, appPurpose }) {
+  return flaskPost('/generate', {
+    description,
+    app_name: appName,
+    app_industry: appIndustry,
+    app_purpose: appPurpose,
+  })
+}
+
+export async function aiGenerateTests(sessionId) {
+  return flaskPost('/generate-tests', { session_id: sessionId })
+}
+
+export async function aiGenerateSpringBootPrompt(sessionId) {
+  return flaskPost('/generate-springboot-prompt', { session_id: sessionId })
+}
+
+export async function aiGenerateReactPrompt(sessionId) {
+  return flaskPost('/generate-react-prompt', { session_id: sessionId })
+}
