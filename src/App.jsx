@@ -9,6 +9,7 @@ import OrgManager from './components/OrgManager'
 import LoginScreen from './components/LoginScreen'
 import UserManager from './components/UserManager'
 import PendingApprovals from './components/PendingApprovals'
+import MySubmissions from './components/MySubmissions'
 import AIGenerator from './components/AIGenerator'
 import { useAuth } from './contexts/AuthContext'
 import { getProcesses } from './utils/api'
@@ -132,7 +133,9 @@ function App() {
       case 'orgs':
         return <OrgManager onNavigate={handleNavigate} />
       case 'approvals':
-        return <PendingApprovals onNavigate={handleNavigate} onCountChange={setPendingCount} />
+        return <PendingApprovals onNavigate={handleNavigate} onCountChange={setPendingCount} onRefresh={loadProcesses} />
+      case 'my-submissions':
+        return <MySubmissions onNavigate={handleNavigate} />
       case 'users':
         return <UserManager onNavigate={handleNavigate} />
       case 'ai-generator':

@@ -143,7 +143,6 @@ function BpmnViewer({ xml, fileName }) {
     <>
       <div className="bpmn-viewer-wrapper">
         <div className="bpmn-viewer-toolbar">
-          <h4>BPMN Diagram{fileName ? ` — ${fileName}` : ''}</h4>
           <div style={{ display: 'flex', gap: '8px' }}>
             <button className="btn btn-secondary btn-sm" onClick={fitView}>Fit View</button>
             <button className="btn btn-primary btn-sm" onClick={() => setExpanded(true)}>⛶ Expand</button>

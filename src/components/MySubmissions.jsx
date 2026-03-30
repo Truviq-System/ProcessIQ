@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { getAllChangeRequests, approveChangeRequest, rejectChangeRequest } from '../utils/api'
+import { getMyChangeRequests } from '../utils/api'
 import { useAuth } from '../contexts/AuthContext'
 
 const CHANGE_TYPE_LABEL = {
@@ -14,71 +14,37 @@ const STATUS_BADGE = {
   rejected: 'badge-red',
 }
 
-function ReviewModal({ request, onApprove, onReject, onClose }) {
-  const [notes, setNotes]   = useState('')
-  const [saving, setSaving] = useState(false)
-  const [error, setError]   = useState('')
-  const [action, setAction] = useState('')
-
+function DetailModal({ request, onClose }) {
   const changeData = request.change_data || {}
   const form = changeData.form || {}
-
-  const handleApprove = async () => {
-    setError('')
-    setSaving(true)
-    try {
-      await onApprove(request.id, notes)
-      onClose()
-    } catch (err) {
-      setError(err.message)
-      setSaving(false)
-    }
-  }
-
-  const handleReject = async () => {
-    if (!notes.trim()) { setError('Please provide a reason for rejection.'); return }
-    setError('')
-    setSaving(true)
-    try {
-      await onReject(request.id, notes)
-      onClose()
-    } catch (err) {
-      setError(err.message)
-      setSaving(false)
-    }
-  }
 
   return (
     <div className="delete-modal-overlay" onClick={onClose}>
       <div
         style={{
           background: 'var(--surface)', borderRadius: 'var(--radius-lg)',
-          padding: '28px 32px', maxWidth: 560, width: '100%',
+          padding: '28px 32px', maxWidth: 520, width: '100%',
           boxShadow: 'var(--shadow-lg)', maxHeight: '90vh', overflowY: 'auto',
         }}
         onClick={e => e.stopPropagation()}
       >
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px' }}>
           <div>
-            <h3 style={{ marginBottom: '4px' }}>Review Change Request</h3>
-            <p style={{ fontSize: '12.5px' }}>
-              Submitted by <strong>{request.requester_email}</strong> · {new Date(request.created_at).toLocaleString()}
+            <h3 style={{ marginBottom: '4px' }}>Submission Details</h3>
+            <p style={{ fontSize: '12.5px', color: 'var(--text-muted)' }}>
+              {new Date(request.created_at).toLocaleString()}
             </p>
           </div>
-          <span className={`badge ${CHANGE_TYPE_LABEL[request.change_type] ? 'badge-blue' : 'badge-gray'}`}>
-            {CHANGE_TYPE_LABEL[request.change_type] || request.change_type}
+          <span className={`badge ${STATUS_BADGE[request.status] || 'badge-gray'}`} style={{ textTransform: 'capitalize' }}>
+            {request.status}
           </span>
         </div>
 
-        {request.change_notes && (
-          <div style={{ background: 'var(--surface-raised)', borderRadius: 'var(--radius-sm)', padding: '10px 12px', marginBottom: '16px', fontSize: '13px' }}>
-            <strong>Analyst notes:</strong> {request.change_notes}
-          </div>
-        )}
-
-        {/* Show proposed change details */}
         <div className="card" style={{ marginBottom: '16px' }}>
-          <div className="card-header"><h3>Proposed Changes</h3></div>
+          <div className="card-header">
+            <h3>Your Change</h3>
+            <span className="badge badge-blue">{CHANGE_TYPE_LABEL[request.change_type] || request.change_type}</span>
+          </div>
           <div className="card-body" style={{ fontSize: '13px' }}>
             {request.change_type === 'bpmn' ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
@@ -97,64 +63,71 @@ function ReviewModal({ request, onApprove, onReject, onClose }) {
                     <span style={{ color: 'var(--text-muted)', fontWeight: 600 }}>Function:</span> {form.function.join(', ')}
                   </div>
                 )}
-                {form.subProcesses?.length > 0 && (
-                  <div style={{ gridColumn: '1/-1' }}>
-                    <span style={{ color: 'var(--text-muted)', fontWeight: 600 }}>Sub-Processes:</span> {form.subProcesses.join(', ')}
-                  </div>
-                )}
+              </div>
+            )}
+            {request.change_notes && (
+              <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px solid var(--border)' }}>
+                <span style={{ color: 'var(--text-muted)', fontWeight: 600 }}>Your notes:</span> {request.change_notes}
               </div>
             )}
           </div>
         </div>
 
-        {request.status === 'pending' && (
-          <>
-            <div className="form-group">
-              <label>Review notes {action === 'reject' && <span className="required">*</span>}</label>
-              <textarea
-                value={notes}
-                onChange={e => setNotes(e.target.value)}
-                rows={3}
-                placeholder={action === 'reject' ? 'Reason for rejection (required)…' : 'Optional notes…'}
-                style={{ resize: 'vertical' }}
-              />
-            </div>
-            {error && <p className="form-error" style={{ marginBottom: '12px' }}>{error}</p>}
-            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-              <button className="btn btn-ghost" onClick={onClose} disabled={saving}>Cancel</button>
-              <button className="btn btn-danger" onClick={() => { setAction('reject'); handleReject() }} disabled={saving}>Reject</button>
-              <button className="btn btn-primary" onClick={() => { setAction('approve'); handleApprove() }} disabled={saving}>
-                {saving ? 'Applying…' : 'Approve & Apply'}
-              </button>
-            </div>
-          </>
-        )}
-
         {request.status !== 'pending' && (
-          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-            <button className="btn btn-ghost" onClick={onClose}>Close</button>
+          <div
+            style={{
+              background: request.status === 'approved' ? 'var(--success-light, #f0fdf4)' : 'var(--danger-light)',
+              border: `1px solid ${request.status === 'approved' ? 'var(--success, #22c55e)' : 'var(--danger)'}`,
+              borderRadius: 'var(--radius)',
+              padding: '12px 14px',
+              marginBottom: '16px',
+              fontSize: '13px',
+            }}
+          >
+            <div style={{ fontWeight: 600, marginBottom: '4px', color: request.status === 'approved' ? 'var(--success, #16a34a)' : 'var(--danger)' }}>
+              {request.status === 'approved' ? '✓ Approved' : '✕ Rejected'} by {request.reviewer_email}
+            </div>
+            {request.reviewed_at && (
+              <div style={{ color: 'var(--text-muted)', fontSize: '12px', marginBottom: request.review_notes ? '6px' : 0 }}>
+                {new Date(request.reviewed_at).toLocaleString()}
+              </div>
+            )}
+            {request.review_notes && (
+              <div style={{ marginTop: '4px' }}>
+                <span style={{ fontWeight: 600 }}>Reviewer notes:</span> {request.review_notes}
+              </div>
+            )}
           </div>
         )}
+
+        {request.status === 'pending' && (
+          <div style={{ background: 'var(--surface-raised)', borderRadius: 'var(--radius)', padding: '10px 14px', marginBottom: '16px', fontSize: '13px', color: 'var(--text-muted)' }}>
+            ⏳ Awaiting review by a Process Owner or Administrator.
+          </div>
+        )}
+
+        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+          <button className="btn btn-ghost" onClick={onClose}>Close</button>
+        </div>
       </div>
     </div>
   )
 }
 
-export default function PendingApprovals({ onNavigate, onCountChange, onRefresh }) {
-  const { user, permissions } = useAuth()
+export default function MySubmissions({ onNavigate }) {
+  const { user } = useAuth()
   const [requests, setRequests] = useState([])
   const [loading, setLoading]   = useState(true)
-  const [filter, setFilter]     = useState('pending')
-  const [reviewing, setReviewing] = useState(null)
+  const [filter, setFilter]     = useState('all')
+  const [viewing, setViewing]   = useState(null)
   const [error, setError]       = useState('')
 
   const load = async () => {
+    if (!user) return
     setLoading(true)
     try {
-      const all = await getAllChangeRequests()
-      setRequests(all)
-      const pending = all.filter(r => r.status === 'pending').length
-      if (onCountChange) onCountChange(pending)
+      const data = await getMyChangeRequests(user.id)
+      setRequests(data)
     } catch (err) {
       setError(err.message)
     } finally {
@@ -162,31 +135,7 @@ export default function PendingApprovals({ onNavigate, onCountChange, onRefresh 
     }
   }
 
-  useEffect(() => { load() }, [])
-
-  const handleApprove = async (id, reviewNotes) => {
-    const req = requests.find(r => r.id === id)
-    await approveChangeRequest(id, {
-      reviewerEmail: user.email,
-      reviewedBy:    user.id,
-      reviewNotes,
-      changeType:    req.change_type,
-      processId:     req.process_id,
-      changeData:    req.change_data,
-    })
-    await load()
-    if (onRefresh) onRefresh()
-  }
-
-  const handleReject = async (id, reviewNotes) => {
-    await rejectChangeRequest(id, {
-      reviewerEmail: user.email,
-      reviewedBy:    user.id,
-      reviewNotes,
-    })
-    await load()
-    if (onRefresh) onRefresh()
-  }
+  useEffect(() => { load() }, [user])
 
   const filtered = requests.filter(r => filter === 'all' || r.status === filter)
   const pendingCount = requests.filter(r => r.status === 'pending').length
@@ -195,8 +144,8 @@ export default function PendingApprovals({ onNavigate, onCountChange, onRefresh 
     <div>
       <div className="page-header">
         <div className="page-header-left">
-          <h1>Change Approvals</h1>
-          <p>Review and approve change requests submitted by Process Analysts</p>
+          <h1>My Submissions</h1>
+          <p>Track the status of change requests you have submitted for approval</p>
         </div>
         {pendingCount > 0 && (
           <div className="page-header-actions">
@@ -214,7 +163,7 @@ export default function PendingApprovals({ onNavigate, onCountChange, onRefresh 
       <div className="table-container">
         <div className="table-toolbar">
           <div style={{ display: 'flex', gap: '6px' }}>
-            {['pending', 'approved', 'rejected', 'all'].map(s => (
+            {['all', 'pending', 'approved', 'rejected'].map(s => (
               <button
                 key={s}
                 className={`btn btn-sm ${filter === s ? 'btn-primary' : 'btn-ghost'}`}
@@ -229,12 +178,12 @@ export default function PendingApprovals({ onNavigate, onCountChange, onRefresh 
         </div>
 
         {loading ? (
-          <div className="loading-screen" style={{ padding: '48px' }}>Loading requests…</div>
+          <div className="loading-screen" style={{ padding: '48px' }}>Loading submissions…</div>
         ) : filtered.length === 0 ? (
           <div className="empty-state">
-            <div className="empty-state-icon">✓</div>
-            <h3>{filter === 'pending' ? 'No pending approvals' : 'No requests found'}</h3>
-            <p>{filter === 'pending' ? 'All change requests have been reviewed.' : 'Try a different filter.'}</p>
+            <div className="empty-state-icon">◌</div>
+            <h3>{filter === 'all' ? 'No submissions yet' : `No ${filter} submissions`}</h3>
+            <p>{filter === 'all' ? 'When you submit changes for approval, they will appear here.' : 'Try a different filter.'}</p>
           </div>
         ) : (
           <table>
@@ -242,11 +191,11 @@ export default function PendingApprovals({ onNavigate, onCountChange, onRefresh 
               <tr>
                 <th>Type</th>
                 <th>Process</th>
-                <th>Submitted by</th>
-                <th>Date</th>
-                <th>Notes</th>
+                <th>Submitted</th>
+                <th>Your Notes</th>
                 <th>Status</th>
-                <th>Action</th>
+                <th>Reviewed By</th>
+                <th></th>
               </tr>
             </thead>
             <tbody>
@@ -262,25 +211,22 @@ export default function PendingApprovals({ onNavigate, onCountChange, onRefresh 
                         ? <span style={{ color: 'var(--text-muted)', fontSize: '12.5px' }}>New: {r.change_data?.form?.processName || '—'}</span>
                         : <span className="text-muted">—</span>}
                   </td>
-                  <td style={{ fontSize: '13px' }}>{r.requester_email}</td>
                   <td style={{ fontSize: '12.5px', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
                     {new Date(r.created_at).toLocaleDateString()}
                   </td>
-                  <td style={{ fontSize: '12.5px', maxWidth: '180px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  <td style={{ fontSize: '12.5px', maxWidth: '160px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {r.change_notes || <span className="text-muted">—</span>}
                   </td>
                   <td>
                     <span className={`badge ${STATUS_BADGE[r.status] || 'badge-gray'}`} style={{ textTransform: 'capitalize' }}>
                       {r.status}
                     </span>
-                    {r.reviewer_email && (
-                      <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>by {r.reviewer_email}</div>
-                    )}
+                  </td>
+                  <td style={{ fontSize: '12.5px', color: 'var(--text-muted)' }}>
+                    {r.reviewer_email || <span className="text-muted">—</span>}
                   </td>
                   <td>
-                    <button className="btn btn-ghost btn-sm" onClick={() => setReviewing(r)}>
-                      {r.status === 'pending' ? 'Review' : 'View'}
-                    </button>
+                    <button className="btn btn-ghost btn-sm" onClick={() => setViewing(r)}>View</button>
                   </td>
                 </tr>
               ))}
@@ -289,18 +235,13 @@ export default function PendingApprovals({ onNavigate, onCountChange, onRefresh 
         )}
         {filtered.length > 0 && (
           <div className="table-bottom">
-            <span className="table-count">Showing {filtered.length} of {requests.length} requests</span>
+            <span className="table-count">Showing {filtered.length} of {requests.length} submissions</span>
           </div>
         )}
       </div>
 
-      {reviewing && (
-        <ReviewModal
-          request={reviewing}
-          onApprove={handleApprove}
-          onReject={handleReject}
-          onClose={() => setReviewing(null)}
-        />
+      {viewing && (
+        <DetailModal request={viewing} onClose={() => setViewing(null)} />
       )}
     </div>
   )

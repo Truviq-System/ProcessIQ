@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { deleteProcess, updateProcess, updateBpmn, getProcess, getProcessVersions, createProcess, getProcesses, generateId, createChangeRequest, aiGenerateBpmn } from '../utils/api';
+import { deleteProcess, updateProcess, updateBpmn, getProcess, getProcessVersions, createProcess, getProcesses, generateId, createChangeRequest } from '../utils/api';
 import { useAuth } from '../contexts/AuthContext';
 import BpmnViewer from './BpmnViewer';
 import BpmnEditor from './BpmnEditor';
@@ -110,13 +110,6 @@ function ProcessDetail({ process, onNavigate, onDelete, onSave, permissions = {}
   const [nameSaveModal, setNameSaveModal] = useState(false);
   const [nameSaving, setNameSaving] = useState(false);
 
-  // Inline AI generation panel
-  const [showAiPanel, setShowAiPanel] = useState(false);
-  const [aiDesc, setAiDesc] = useState('');
-  const [aiGenerating, setAiGenerating] = useState(false);
-  const [aiResult, setAiResult] = useState(null);
-  const [aiError, setAiError] = useState('');
-
   useEffect(() => {
     if (!process?.id) return;
     setFetching(true);
@@ -203,34 +196,6 @@ function ProcessDetail({ process, onNavigate, onDelete, onSave, permissions = {}
     setCurrentProcess(saved);
     setEditingBpmn(false);
     if (onSave) onSave(saved);
-  };
-
-  const handleAiGenerate = async () => {
-    if (!aiDesc.trim()) return;
-    setAiGenerating(true);
-    setAiError('');
-    setAiResult(null);
-    try {
-      const data = await aiGenerateBpmn({ description: aiDesc });
-      if (!data.success) throw new Error(data.error || 'Generation failed');
-      setAiResult(data);
-    } catch (err) {
-      setAiError(err.message);
-    } finally {
-      setAiGenerating(false);
-    }
-  };
-
-  const handleApplyAiBpmn = async () => {
-    if (!aiResult?.xml) return;
-    try {
-      await handleBpmnSave(aiResult.xml, 'AI-generated BPMN');
-      setShowAiPanel(false);
-      setAiResult(null);
-      setAiDesc('');
-    } catch (err) {
-      setAiError('Failed to apply: ' + err.message);
-    }
   };
 
   const persist = async (patch) => {
@@ -365,120 +330,13 @@ function ProcessDetail({ process, onNavigate, onDelete, onSave, permissions = {}
       {/* BPMN Diagram */}
       <div className="card" style={{ marginBottom: '20px' }}>
         <div className="card-header">
-          <h3>BPMN Diagram</h3>
-          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-            {selectedVersion && (
-              <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-                Viewing archived v{selectedVersion.version}
-                {selectedVersion.changeNotes ? ` — ${selectedVersion.changeNotes}` : ''}
-              </span>
-            )}
-            {permissions.edit && (
-              <button
-                className="btn btn-sm"
-                onClick={() => { setShowAiPanel(p => !p); setAiResult(null); setAiError(''); setAiDesc(''); }}
-                style={showAiPanel ? {
-                  background: 'linear-gradient(135deg, #4f6ef7 0%, #6c47ff 100%)',
-                  color: '#fff', border: 'none',
-                  boxShadow: '0 2px 6px rgba(79,110,247,0.3)',
-                } : {
-                  background: 'var(--primary-light)',
-                  color: 'var(--primary)',
-                  border: '1px solid #c7d3fb',
-                  fontWeight: 600,
-                }}
-              >
-                ✦ {showAiPanel ? 'Close AI' : 'Generate with AI'}
-              </button>
-            )}
-          </div>
+          {selectedVersion && (
+            <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+              Viewing archived v{selectedVersion.version}
+              {selectedVersion.changeNotes ? ` — ${selectedVersion.changeNotes}` : ''}
+            </span>
+          )}
         </div>
-
-        {/* Inline AI Generation Panel */}
-        {showAiPanel && (
-          <div style={{
-            borderBottom: '1px solid var(--border)',
-            background: 'linear-gradient(135deg, #f8f9ff 0%, #eef1fd 100%)',
-            padding: '18px 20px',
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
-              <span style={{ fontSize: '13.5px', fontWeight: 700, color: 'var(--primary)' }}>✦ AI BPMN Generator</span>
-              <span style={{ fontSize: '12.5px', color: 'var(--text-muted)', fontWeight: 400 }}>
-                — describe your process to generate a new diagram
-              </span>
-            </div>
-            <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
-              <textarea
-                value={aiDesc}
-                onChange={e => setAiDesc(e.target.value)}
-                rows={3}
-                placeholder="Describe the business process in detail — include actors, tasks, decision points, and expected outcomes…"
-                style={{ flex: 1, resize: 'vertical' }}
-                disabled={aiGenerating}
-              />
-              <button
-                className="btn btn-primary"
-                disabled={aiGenerating || !aiDesc.trim()}
-                onClick={handleAiGenerate}
-                style={{ flexShrink: 0, alignSelf: 'flex-end' }}
-              >
-                {aiGenerating ? (
-                  <><span className="ai-spinner" /> Generating…</>
-                ) : '✦ Generate'}
-              </button>
-            </div>
-
-            {aiError && (
-              <div style={{ background: 'var(--danger-light)', color: 'var(--danger)', padding: '8px 12px', borderRadius: 'var(--radius)', marginTop: '10px', fontSize: '13px' }}>
-                {aiError}
-              </div>
-            )}
-
-            {aiResult && (
-              <div style={{ marginTop: '16px' }}>
-                <div style={{ fontSize: '12.5px', color: 'var(--text-muted)', marginBottom: '10px' }}>
-                  Preview — apply this to replace the current BPMN diagram.
-                </div>
-                <BpmnViewer xml={aiResult.xml} fileName="ai-preview.bpmn" />
-
-                {/* Attractive action row */}
-                <div style={{
-                  display: 'flex', gap: '10px', alignItems: 'center',
-                  marginTop: '14px', paddingTop: '14px',
-                  borderTop: '1px solid #dde3f8',
-                }}>
-                  <button
-                    onClick={handleApplyAiBpmn}
-                    style={{
-                      display: 'inline-flex', alignItems: 'center', gap: '7px',
-                      padding: '9px 20px',
-                      background: 'linear-gradient(135deg, #4f6ef7 0%, #6c47ff 100%)',
-                      color: '#fff', border: 'none',
-                      borderRadius: 'var(--radius-sm)',
-                      fontSize: '13.5px', fontWeight: 600,
-                      cursor: 'pointer',
-                      boxShadow: '0 3px 10px rgba(79,110,247,0.4)',
-                      transition: 'opacity 0.15s, box-shadow 0.15s',
-                    }}
-                    onMouseEnter={e => { e.currentTarget.style.opacity = '0.9'; }}
-                    onMouseLeave={e => { e.currentTarget.style.opacity = '1'; }}
-                  >
-                    ✓ Apply to Process
-                  </button>
-                  <button
-                    className="btn btn-ghost btn-sm"
-                    onClick={() => { setAiResult(null); setAiDesc(''); setShowAiPanel(false); }}
-                  >
-                    Discard
-                  </button>
-                  {aiResult.rag_used && (
-                    <span className="badge badge-purple" style={{ marginLeft: 'auto' }}>✦ RAG context applied</span>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
 
         <div className="card-body" style={{ padding: 0 }}>
           <BpmnViewer

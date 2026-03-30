@@ -58,6 +58,16 @@ export default function Sidebar({ collapsed, currentView, onNavigate, processes 
           </button>
         )}
 
+        {permissions.editsRequireApproval && (
+          <button
+            className={`sidebar-nav-item${currentView === 'my-submissions' ? ' active' : ''}`}
+            onClick={() => onNavigate('my-submissions')}
+          >
+            <span className="sidebar-nav-icon">⏳</span>
+            <span className="sidebar-nav-text">My Submissions</span>
+          </button>
+        )}
+
         {permissions.manageOrgs && (
           <button
             className={`sidebar-nav-item${currentView === 'orgs' ? ' active' : ''}`}

@@ -230,6 +230,16 @@ export async function getAllChangeRequests() {
   return data || []
 }
 
+export async function getMyChangeRequests(userId) {
+  const { data, error } = await supabase
+    .from('process_change_requests')
+    .select('*')
+    .eq('requested_by', userId)
+    .order('created_at', { ascending: false })
+  if (error) throw error
+  return data || []
+}
+
 export async function approveChangeRequest(id, { reviewerEmail, reviewedBy, reviewNotes, changeType, processId, changeData }) {
   // Apply the change to the actual process table
   let saved = null
