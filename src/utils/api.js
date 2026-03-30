@@ -342,12 +342,29 @@ async function flaskPost(path, body) {
   return res.json()
 }
 
-export async function aiGenerateBpmn({ description, appName, appIndustry, appPurpose }) {
+export async function extractDocument(file) {
+  const formData = new FormData()
+  formData.append('file', file)
+  const res = await fetch(`${FLASK_BASE}/extract-document`, {
+    method: 'POST',
+    body: formData,
+    // no Content-Type header — browser sets it with boundary automatically
+  })
+  if (!res.ok) {
+    const text = await res.text()
+    throw new Error(text || `Flask API error ${res.status}`)
+  }
+  return res.json()
+}
+
+export async function aiGenerateBpmn({ description, appName, appIndustry, appPurpose, documentContext = '', existingBpmnXml = '' }) {
   return flaskPost('/generate', {
     description,
     app_name: appName,
     app_industry: appIndustry,
     app_purpose: appPurpose,
+    document_context: existingBpmnXml ? '' : documentContext,
+    existing_bpmn_xml: existingBpmnXml || '',
   })
 }
 
