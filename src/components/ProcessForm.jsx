@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { createProcess, updateProcess, generateId, getOrgs, getOrgData, createChangeRequest, aiGenerateBpmn, extractDocument } from '../utils/api';
 import { useAuth } from '../contexts/AuthContext';
 import BpmnViewer from './BpmnViewer';
+import BpmnEditor from './BpmnEditor';
 
 const LEVELS = ['Support', 'Core', 'Strategic'];
 
@@ -121,6 +122,7 @@ function ProcessForm({ process, processes = [], onSave, onCancel, permissions = 
       : { ...defaultForm, ...(initialBpmn ? { bpmnXml: initialBpmn, fileName: 'ai-generated.bpmn' } : {}) }
   );
   const [errors, setErrors] = useState({});
+  const [submitAttempted, setSubmitAttempted] = useState(false);
   const [saving, setSaving] = useState(false);
   const [changeNotes, setChangeNotes] = useState('');
   const [submitted, setSubmitted] = useState(false);
@@ -131,6 +133,7 @@ function ProcessForm({ process, processes = [], onSave, onCancel, permissions = 
   const fileInputRef = useRef(null);
   const spTagRef = useRef(null);
   const pnTagRef = useRef(null);
+  const editorRef = useRef(null);
 
   // Inline AI generation inside the BPMN card
   const [bpmnMode, setBpmnMode] = useState('upload'); // 'upload' | 'ai'
@@ -176,6 +179,7 @@ function ProcessForm({ process, processes = [], onSave, onCancel, permissions = 
     if (!form.processName.trim()) e.processName = 'Process name is required';
     if (!form.org.trim()) e.org = 'Organization is required';
     if (!form.function.length) e.function = 'Function is required';
+    if (!form.subProcesses.length) e.subProcesses = 'At least one sub-process is required';
     if (!form.level) e.level = 'Level is required';
     setErrors(e);
     return Object.keys(e).length === 0;
@@ -183,6 +187,7 @@ function ProcessForm({ process, processes = [], onSave, onCancel, permissions = 
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setSubmitAttempted(true);
     if (!validate()) return;
     setSaving(true);
     setErrors({});
@@ -243,7 +248,23 @@ function ProcessForm({ process, processes = [], onSave, onCancel, permissions = 
     setAiError('');
     setAiResult(null);
     try {
-      const data = await aiGenerateBpmn({ description: aiDesc, documentContext: docText, existingBpmnXml: docBpmnXml });
+      // Build a structured context from the form fields already filled in
+      const contextLines = [];
+      if (form.org)                     contextLines.push(`Organization: ${form.org}`);
+      if (form.function.length)         contextLines.push(`Function: ${form.function.join(', ')}`);
+      if (form.processName)             contextLines.push(`Process Name: ${form.processName}`);
+      if (form.subProcesses.length)     contextLines.push(`Sub-Processes: ${form.subProcesses.join(', ')}`);
+      if (form.level)                   contextLines.push(`Level: ${form.level}`);
+
+      const enrichedDescription = contextLines.length > 0
+        ? `Process Context:\n${contextLines.join('\n')}\n\nProcess Description:\n${aiDesc.trim()}`
+        : aiDesc.trim();
+
+      const data = await aiGenerateBpmn({
+        description: enrichedDescription,
+        documentContext: docText,
+        existingBpmnXml: docBpmnXml,
+      });
       if (!data.success) throw new Error(data.error || 'Generation failed');
       setAiResult(data);
     } catch (err) {
@@ -253,10 +274,14 @@ function ProcessForm({ process, processes = [], onSave, onCancel, permissions = 
     }
   };
 
-  const handleUseAiBpmn = () => {
+  const handleUseAiBpmn = async () => {
     if (!aiResult?.xml) return;
-    set('bpmnXml', aiResult.xml);
-    set('fileName', 'ai-generated.bpmn');
+    const xml = editorRef.current ? await editorRef.current.getXml() : aiResult.xml;
+    const baseName = form.processName.trim()
+      ? form.processName.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-')
+      : 'ai-generated';
+    set('bpmnXml', xml);
+    set('fileName', `${baseName}.bpmn`);
     setErrors(e => ({ ...e, file: undefined }));
     setAiResult(null);
     setAiDesc('');
@@ -393,7 +418,7 @@ function ProcessForm({ process, processes = [], onSave, onCancel, permissions = 
                   {errors.function && <p className="form-error">{errors.function}</p>}
                 </div>
                 <div className="form-group">
-                  <label>Sub-Processes</label>
+                  <label>Sub-Processes <span className="required">*</span></label>
                   <TagInput
                     tags={form.subProcesses}
                     onAdd={addSpTag}
@@ -402,6 +427,7 @@ function ProcessForm({ process, processes = [], onSave, onCancel, permissions = 
                     placeholder="Type to search or add sub-processes..."
                     suggestions={orgTableData && form.function[0] ? (orgTableData[form.function[0]]?.subProcesses || []) : []}
                   />
+                  {errors.subProcesses && <p className="form-error">{errors.subProcesses}</p>}
                 </div>
               </div>
             </div>
@@ -568,6 +594,32 @@ function ProcessForm({ process, processes = [], onSave, onCancel, permissions = 
                       — describe your process and AI will create the diagram
                     </span>
                   </div>
+
+                  {/* Context pills — show what process info will be sent */}
+                  {(form.org || form.function.length > 0 || form.processName || form.subProcesses.length > 0) && (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '12px' }}>
+                      {form.org && (
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: '#eef1fd', color: '#4f6ef7', border: '1px solid #c7d3fb', borderRadius: '999px', padding: '2px 10px', fontSize: '12px' }}>
+                          <span style={{ opacity: 0.6, fontSize: '10px' }}>ORG</span> {form.org}
+                        </span>
+                      )}
+                      {form.function.length > 0 && (
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: '#eef1fd', color: '#4f6ef7', border: '1px solid #c7d3fb', borderRadius: '999px', padding: '2px 10px', fontSize: '12px' }}>
+                          <span style={{ opacity: 0.6, fontSize: '10px' }}>FN</span> {form.function.join(', ')}
+                        </span>
+                      )}
+                      {form.processName && (
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: '#eef1fd', color: '#4f6ef7', border: '1px solid #c7d3fb', borderRadius: '999px', padding: '2px 10px', fontSize: '12px' }}>
+                          <span style={{ opacity: 0.6, fontSize: '10px' }}>NAME</span> {form.processName}
+                        </span>
+                      )}
+                      {form.subProcesses.map(sp => (
+                        <span key={sp} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: '#eef1fd', color: '#4f6ef7', border: '1px solid #c7d3fb', borderRadius: '999px', padding: '2px 10px', fontSize: '12px' }}>
+                          <span style={{ opacity: 0.6, fontSize: '10px' }}>SUB</span> {sp}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                   <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
                     <textarea
                       value={aiDesc}
@@ -663,7 +715,7 @@ function ProcessForm({ process, processes = [], onSave, onCancel, permissions = 
                       display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px',
                     }}>
                       <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--primary)' }}>
-                        ✦ AI-Generated BPMN Preview
+                        ✦ AI-Generated BPMN — Edit before saving
                       </span>
                       <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                         {aiResult.rag_used && (
@@ -699,7 +751,7 @@ function ProcessForm({ process, processes = [], onSave, onCancel, permissions = 
                         </button>
                       </div>
                     </div>
-                    <BpmnViewer xml={aiResult.xml} fileName="ai-generated.bpmn" />
+                    <BpmnEditor ref={editorRef} xml={aiResult.xml} />
                   </div>
                 )}
               </div>
@@ -726,6 +778,30 @@ function ProcessForm({ process, processes = [], onSave, onCancel, permissions = 
                 />
               </div>
             </div>
+          </div>
+        )}
+
+        {submitAttempted && Object.keys(errors).filter(k => k !== 'submit').length > 0 && (
+          <div style={{
+            background: '#fffbeb',
+            border: '1px solid #f59e0b',
+            borderRadius: 'var(--radius)',
+            padding: '14px 16px',
+            marginBottom: '16px',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+              <span style={{ fontSize: '16px' }}>⚠</span>
+              <span style={{ fontSize: '13.5px', fontWeight: 600, color: '#92400e' }}>
+                Please fix the following before submitting:
+              </span>
+            </div>
+            <ul style={{ margin: 0, paddingLeft: '20px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              {Object.entries(errors)
+                .filter(([k]) => k !== 'submit')
+                .map(([k, msg]) => (
+                  <li key={k} style={{ fontSize: '13px', color: '#b45309' }}>{msg}</li>
+                ))}
+            </ul>
           </div>
         )}
 

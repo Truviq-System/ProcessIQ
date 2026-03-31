@@ -21,13 +21,13 @@ function Dashboard({ processes, onNavigate }) {
     <div>
       <div className="page-header">
         <div className="page-header-left">
-          <h1>Dashboard</h1>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+            <h1>Dashboard</h1>
+            <button className="btn btn-primary btn-sm" onClick={() => onNavigate('add')}>
+              + Add Process
+            </button>
+          </div>
           <p>Overview of your BPMN process repository</p>
-        </div>
-        <div className="page-header-actions">
-          <button className="btn btn-primary" onClick={() => onNavigate('add')}>
-            + Add Process
-          </button>
         </div>
       </div>
 

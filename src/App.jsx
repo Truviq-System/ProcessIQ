@@ -10,7 +10,6 @@ import LoginScreen from './components/LoginScreen'
 import UserManager from './components/UserManager'
 import PendingApprovals from './components/PendingApprovals'
 import MySubmissions from './components/MySubmissions'
-import AIGenerator from './components/AIGenerator'
 import { useAuth } from './contexts/AuthContext'
 import { getProcesses } from './utils/api'
 import './App.css'
@@ -138,9 +137,7 @@ function App() {
         return <MySubmissions onNavigate={handleNavigate} />
       case 'users':
         return <UserManager onNavigate={handleNavigate} />
-      case 'ai-generator':
-        return <AIGenerator onNavigate={handleNavigate} permissions={permissions} />
-      default:
+default:
         return <Dashboard processes={processes} onNavigate={handleNavigate} />
     }
   }
@@ -155,7 +152,11 @@ function App() {
 
   return (
     <div className="app-shell">
-      <Navbar onToggleSidebar={() => setSidebarCollapsed(c => !c)} pendingCount={pendingCount} />
+      <Navbar
+        onToggleSidebar={() => setSidebarCollapsed(c => !c)}
+        pendingCount={pendingCount}
+        onAddProcess={permissions.add ? () => handleNavigate('add') : null}
+      />
       <div className="app-body">
         <Sidebar
           collapsed={sidebarCollapsed}

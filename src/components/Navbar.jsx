@@ -6,7 +6,7 @@ const ROLE_BADGE_CLASS = {
   process_analyst:      'role-viewer',
 }
 
-function Navbar({ onToggleSidebar, pendingCount = 0 }) {
+function Navbar({ onToggleSidebar, pendingCount = 0, onAddProcess }) {
   const { user, roles, signOut } = useAuth()
 
   // Show the highest role as the primary badge
@@ -39,6 +39,11 @@ function Navbar({ onToggleSidebar, pendingCount = 0 }) {
               </span>
             )}
           </div>
+          {onAddProcess && (
+            <button className="btn btn-primary btn-sm" onClick={onAddProcess} title="Add new process">
+              + Add Process
+            </button>
+          )}
           {pendingCount > 0 && (
             <span className="navbar-pending-badge" title={`${pendingCount} pending approval${pendingCount !== 1 ? 's' : ''}`}>
               {pendingCount}
